@@ -73,7 +73,7 @@ from nltk.stem import WordNetLemmatizer
 
 
 # read the CSV file
-df = pd.read_csv("reddit_file.csv")
+df = pd.read_csv("reddit_comments.csv")
 
 #Removing Non-English Comments 
 # Function to detect the language of a sentence
@@ -144,6 +144,8 @@ def lemmatize_sentence(sentence):
 # apply the lemmatize_sentence function to the 'body' column of the DataFrame
 df['body'] = df['body'].apply(lemmatize_sentence)
 
+# Save the comments to a CSV file
+df.to_csv("reddit_lemmatized.csv", index=False)
 
 
 Finding the optimal topic number 
@@ -185,7 +187,7 @@ from gensim.corpora.dictionary import Dictionary
 from gensim.models.coherencemodel import CoherenceModel
 
 # Load data from csv
-df = pd.read_csv("Step7_lemmatized.csv")
+df = pd.read_csv("reddit_lemmatized.csv")
 
 # Remove rows with missing values
 df.dropna(inplace=True)
