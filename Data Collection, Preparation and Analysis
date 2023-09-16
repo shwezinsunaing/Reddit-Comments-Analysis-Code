@@ -1,0 +1,249 @@
+#PART 1: CODE FOR DATA COLLECTION
+
+import pandas as pd
+import requests
+import datetime
+import csv 
+
+# Define the start and end dates for the period 
+start_date = datetime.datetime(2022, 12, 1)
+end_date = datetime.datetime(2023, 2, 28)
+
+# Define the URL for the Pushshift API
+url = "https://api.pushshift.io/reddit/comment/search"
+
+# Define the parameters for the API call
+params = {
+    "subreddit": "ChatGPT",
+    "size": 1000,
+    "before": int(end_date.timestamp()),
+    "after": int(start_date.timestamp())
+}
+
+# Keep making API requests until we've retrieved all the comments
+comments = []
+while True:
+    # Send the API request
+    response = requests.get(url, params=params)
+    
+    # Check for errors
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}")
+        break
+    
+    # Extract the data from the response
+    data = response.json().get("data", [])
+    
+    # If there are no more comments, exit the loop
+    if len(data) == 0:
+        break
+    
+    # Add the comments to the list
+    comments.extend(data)
+    
+    # Update the parameters for the next API call
+    params["before"] = data[-1]["created_utc"]
+
+# Convert the comments to a pandas DataFrame
+df = pd.DataFrame(comments)
+
+# Save the comments to a CSV file
+df.to_csv("reddit_comments.csv", index=False)
+
+# Count the number of comments
+num_comments = len(comments)
+
+# Print the number of comments
+print(f"Number of comments: {num_comments}")
+
+
+
+
+
+
+# PART 2: CODE FOR DATA PREPARATION AND ANALYSIS
+
+import pandas as pd
+from langdetect import detect
+import re
+import nltk
+from nltk.corpus import stopwords
+nltk.download('wordnet')
+from nltk.stem import WordNetLemmatizer
+
+
+# read the CSV file
+df = pd.read_csv("reddit_file.csv")
+
+#Removing Non-English Comments 
+# Function to detect the language of a sentence
+def detect_language(text):
+    try:
+        lang = detect(text)
+        return lang
+    except:
+        return 'unknown'
+
+# Remove non-English comments
+df['language'] = df['body'].apply(detect_language)
+df = df[df['language'] == 'en']
+
+
+# Function to clean the text by removing noise
+def clean_text(text):
+    # Remove special characters and digits
+    text = re.sub(r'[^a-zA-Z]', ' ', text)
+    # Remove extra spaces
+    text = re.sub(r'\s+', ' ', text)
+    # Convert to lowercase
+    text = text.lower()
+    return text
+
+# Function to remove stop words
+def remove_stopwords(text):
+    stop_words = set(stopwords.words('english'))
+    tokens = text.split()
+    filtered_tokens = [token for token in tokens if token not in stop_words]
+    filtered_text = ' '.join(filtered_tokens)
+    return filtered_text
+
+# Clean the text
+df['clean_comments'] = df['body'].apply(clean_text)
+
+# Remove stop words
+df['clean_comments'] = df['body'].apply(remove_stopwords)
+
+# Remove missing rows
+df = df.dropna(subset=['clean_comments'])
+
+# Remove the 'language' column
+df = df.drop('language', axis=1)
+
+# Remove domain-specific keywords
+df['body'] = df['body'].str.replace('chatgpt', '')
+df['body'] = df['body'].str.replace('ai', '')
+df['body'] = df['body'].str.replace('openai', '')
+df['body'] = df['body'].str.replace('gpt', '')
+
+# initialize WordNetLemmatizer
+lemmatizer = WordNetLemmatizer()
+
+# define a function to perform WordNet-based lemmatization on a given sentence
+def lemmatize_sentence(sentence):
+    if isinstance(sentence, str):
+        # tokenize the sentence into words
+        words = nltk.word_tokenize(sentence)
+        # perform lemmatization on each word using WordNetLemmatizer
+        lemmatized_words = [lemmatizer.lemmatize(word) for word in words]
+        # join the lemmatized words back into a sentence
+        lemmatized_sentence = " ".join(lemmatized_words)
+        return lemmatized_sentence
+    else:
+        return sentence
+
+# apply the lemmatize_sentence function to the 'body' column of the DataFrame
+df['body'] = df['body'].apply(lemmatize_sentence)
+
+
+
+Finding the optimal topic number 
+
+# Calculate the coherence scores for different numbers of topics
+coherence_scores = []
+for num_topics in range(5, 20):
+    lda_model = models.LdaModel(corpus=corpus,
+                                id2word=dictionary,
+                                num_topics=num_topics,
+                                passes=10,
+                                random_state=42)
+    coherence_model_lda = CoherenceModel(model=lda_model, texts=docs, dictionary=dictionary, coherence='c_v')
+    coherence_score = coherence_model_lda.get_coherence()
+    coherence_scores.append(coherence_score)
+    print("Number of topics: {}. Coherence score: {}".format(num_topics, coherence_score))
+
+# Find the optimal number of topics
+optimal_num_topics = range(5, 41)[coherence_scores.index(max(coherence_scores))]
+print("Optimal number of topics: {}. Coherence score: {}".format(optimal_num_topics, max(coherence_scores)))
+
+# Plot the coherence scores
+plt.plot(range(5, 41), coherence_scores)
+plt.xlabel("Number of topics")
+plt.ylabel("Coherence score")
+plt.show()
+
+
+
+#LDA Topic Modeling and Printing Keywords 
+
+import pandas as pd
+import numpy as np
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import WordNetLemmatizer
+from gensim.models.ldamodel import LdaModel
+from gensim.corpora.dictionary import Dictionary
+from gensim.models.coherencemodel import CoherenceModel
+
+# Load data from csv
+df = pd.read_csv("Step7_lemmatized.csv")
+
+# Remove rows with missing values
+df.dropna(inplace=True)
+
+# Remove specific words
+df['body'] = df['body'].apply(lambda x: ' '.join([word for word in x.split() if word not in ['got', 'get', 'also', 'dan']]))
+
+# Preprocessing
+stop_words = set(stopwords.words('english'))
+lemmatizer = WordNetLemmatizer()
+
+def preprocess(text):
+    result = []
+    for token in nltk.word_tokenize(text):
+        if len(token) > 2 and not token.isnumeric() and token.isalnum() and token not in stop_words:
+            result.append(lemmatizer.lemmatize(token))
+    return result
+
+df['body'] = df['body'].apply(preprocess)
+
+# Create dictionary and corpus
+dictionary = Dictionary(df['body'])
+corpus = [dictionary.doc2bow(text) for text in df['body']]
+
+# LDA model
+lda_model = LdaModel(corpus=corpus, id2word=dictionary, num_topics=6, iterations=100, passes=10)
+
+# Print topics and keywords
+for i, topic in lda_model.show_topics(formatted=True, num_topics=6, num_words=40):
+    topic = topic.split("+")
+    keywords = [word.split("*")[1].replace('"', '').strip() for word in topic]
+    keywords = [word for word in keywords if word != 'lmao']
+    print("Topic {}: {}".format(i, ", ".join(keywords)))
+
+
+
+#Vader_Based Sentiment Analysis 
+
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+
+nltk.download('vader_lexicon')
+
+analyzer = SentimentIntensityAnalyzer()
+
+text = "I love this product! It's amazing."
+sentiment_scores = analyzer.polarity_scores(text)
+
+# The sentiment scores include a compound score, which represents the overall sentiment.
+compound_score = sentiment_scores['compound']
+
+# Classify the sentiment based on the compound score
+if compound_score >= 0.05:
+    sentiment = 'Positive'
+elif compound_score <= -0.05:
+    sentiment = 'Negative'
+else:
+    sentiment = 'Neutral'
+
+print(f"Sentiment: {sentiment}")
+print(f"Compound Score: {compound
