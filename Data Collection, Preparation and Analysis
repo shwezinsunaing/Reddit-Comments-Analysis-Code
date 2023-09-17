@@ -216,7 +216,7 @@ corpus = [dictionary.doc2bow(text) for text in df['body']]
 lda_model = LdaModel(corpus=corpus, id2word=dictionary, num_topics=6, iterations=100, passes=10)
 
 # Print topics and keywords
-for i, topic in lda_model.show_topics(formatted=True, num_topics=6, num_words=40):
+for i, topic in lda_model.show_topics(formatted=True, num_topics=6, num_words=60):
     topic = topic.split("+")
     keywords = [word.split("*")[1].replace('"', '').strip() for word in topic]
     keywords = [word for word in keywords if word != 'lmao']
